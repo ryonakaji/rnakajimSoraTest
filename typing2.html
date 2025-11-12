@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>タイピングRPG・プロトタイプ</title>
+  <style>
+    :root{
+      --bg:#0f1226; --panel:#161a36; --text:#e9ebff; --muted:#9aa0d0; --accent:#6aa1ff; --good:#46e0a9; --bad:#ff6a8b; --hp:#ffce6a;
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font-family: "Segoe UI", system-ui, -apple-system, sans-serif; background: radial-gradient(1200px 600px at 70% -20%, #1d2250, #0b0d1e) fixed; color:var(--text);}
+    .wrap{max-width:980px; margin:40px auto; padding:0 16px;}
+
+    header{display:flex; align-items:center; gap:12px; margin-bottom:16px}
+    header h1{font-size: clamp(22px, 3.6vw, 32px); margin:0; letter-spacing:.02em}
+    header .pill{padding:6px 10px; border-radius:999px; background:linear-gradient(90deg,#26306b,#1a204e); color:var(--muted); font-size:12px}
+
+    .stage{display:grid; grid-template-columns: 360px 1fr; gap:20px}
+    @media (max-width:860px){.stage{grid-template-columns:1fr}}
+
+    .card{background:linear-gradient(180deg, #1b1f44cc, #121532cc); backdrop-filter: blur(6px); border: 1px solid #2a2f66; border-radius:16px; box-shadow: 0 10px 30px #0006}
+    .card h2{margin:0 0 8px; font-size:18px; color:#b9c1ff}
+    .card .inner{padding:18px}
+
+    .monster{display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px}
+    .monster-art{width:200px; height:200px; border-radius:24px; background: conic-gradient(from 0deg, #2f357d, #28307a, #232b6f, #2f357d); position:relative; box-shadow: inset 0 0 40px #000a, 0 10px 40px #0008}
+    .monster-face{position:absolute; inset:0; display:grid; place-items:center;}
+    .eyes{display:flex; gap:32px; margin-top:-20px}
+    .eye{width:36px; height:36px; background:#fff; border-radius:50%; position:relative}
+    .eye::after{content:""; position:absolute; width:12px; height:12px; background:#111; border-radius:50%; left:12px; top:14px}
+    .mouth{width:90px; height:20px; background:#111; border-radius: 0 0 40px 40px; margin-top:18px}
+
+    .hpbar{width:100%; height:14px; border-radius:8px; background:#2a2e58; overflow:hidden; border:1px solid #3b4184; margin-top:14px}
+    .hp{height:100%; width:100%; background:linear-gradient(90deg, #ff6a6a, var(--hp)); transition: width .5s ease}
+    .hp-num{font-variant-numeric: tabular-nums; color:#ffdca3; margin-top:6px; font-size:14px}
+
+    .play{display:grid; gap:14px}
+    .prompt{font-size: clamp(18px, 2.6vw, 24px); letter-spacing:.04em; padding:10px 14px; border-radius:10px; border:1px dashed #445; background:#10133a; color:#cfe0ff}
+    .ghost{opacity:.4; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace}
+
+    .typebox{display:flex; gap:10px}
+    input[type="text"]{flex:1; font-size:20px; padding:12px 14px; background:#0e1131; border:1px solid #2f3572; border-radius:12px; color:var(--text); outline:none}
+    input[type="text"]:focus{border-color:#6aa1ff; box-shadow:0 0 0 3px #6aa1ff33}
+    button{padding:12px 16px; border-radius:12px; border:1px solid #39408c; background:linear-gradient(180deg,#2a3276,#212862); color:#dfe6ff; cursor:pointer; font-weight:600}
+    button:hover{filter:brightness(1.08)}
+
+    .row{display:flex; flex-wrap:wrap; gap:10px; align-items:center}
+    .stat{padding:8px 10px; background:#0e1234; border:1px solid #2a2f66; border-radius:10px; font-size:13px; color:#b7c1ff}
+
+    .log{max-height:220px; overflow:auto; border-top:1px solid #2b3170; padding-top:12px;}
+    .log p{margin:.2em 0; font-size:14px; color:#cbd1ff}
+
+    .hit{animation: hit .45s ease}
+    @keyframes hit{0%{transform:translateY(0)} 30%{transform: translateY(-6px) scale(1.02)} 100%{transform:translateY(0)} }
+
+    .float-dmg{position:absolute; left:50%; transform: translateX(-50%); top: -10px; font-weight:800; color:#ffe49c; text-shadow:0 2px 10px #000; animation:float 1.2s ease forwards}
+    @keyframes float{0%{opacity:0; transform: translate(-50%,10px)} 20%{opacity:1; transform: translate(-50%, -4px)} 100%{opacity:0; transform: translate(-50%, -40px)} }
+
+    .footer-note{color:#9aa0d0; font-size:13px; margin-top:10px}
+    .small{font-size:12px; color:#8aa0ff}
+    .success{color:var(--good)}
+    .fail{color:var(--bad)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>タイピングRPG・プロトタイプ</h1>
+      <span class="pill">正確性 × 速さ = ダメージ</span>
+    </header>
+
+    <div class="stage">
+      <section class="card">
+        <div class="inner monster" id="monster">
+          <div class="monster-art" id="monsterArt">
+            <div class="monster-face">
+              <div class="eyes">
+                <div class="eye"></div>
+                <div class="eye"></div>
+              </div>
+              <div class="mouth"></div>
+            </div>
+            <div id="floatDmg" class="float-dmg" style="display:none"></div>
+          </div>
+          <div class="hpbar"><div class="hp" id="hp"></div></div>
+          <div class="hp-num" id="hpNum"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="inner play">
+          <div class="row">
+            <button id="startBtn">バトル開始</button>
+            <button id="nextBtn" disabled>次のお題</button>
+            <button id="resetBtn">リセット</button>
+            <span class="small">Enterで攻撃→自動で次へ / Escでクリア</span>
+          </div>
+
+          <div>
+            <div class="prompt" id="prompt">お題：<span class="ghost">（開始してね）</span></div>
+          </div>
+
+          <div class="typebox">
+            <input id="input" type="text" autocomplete="off" placeholder="ここにタイプして Enter" disabled />
+            <button id="attackBtn" disabled>攻撃！</button>
+          </div>
+
+          <div class="row">
+            <div class="stat">経過時間：<span id="time">0.00</span>s</div>
+            <div class="stat">正確性：<span id="acc">0</span>%</div>
+            <div class="stat">速度：<span id="cps">0.0</span> chars/s</div>
+            <div class="stat">コンボ：<span id="combo">0</span></div>
+          </div>
+
+          <div class="log" id="log"></div>
+          <div class="footer-note">※ ダメージ計算：<code>damage = base(50) × accuracy(0-1) × speed倍率</code>。速度倍率は基準CPS(5)に対して0.5〜2.0で補正。</div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const words = ["fireball", "thunder", "strawberry", "galaxy", "algorithm", "prototype", "challenge", "developer", "javascript", "velocity", "accuracy", "momentum", "quantum", "soragakusei", "nakajima"];
+    let target = "";
+    let startTime = 0;
+    let timerId = null;
+    let monsterMaxHP = 300;
+    let monsterHP = monsterMaxHP;
+    let combo = 0;
+
+    const el = (id)=>document.getElementById(id);
+    const promptEl=el('prompt'), inp=el('input'), timeEl=el('time'), accEl=el('acc'), cpsEl=el('cps'), logEl=el('log');
+    const hpEl=el('hp'), hpNumEl=el('hpNum'), startBtn=el('startBtn'), nextBtn=el('nextBtn'), resetBtn=el('resetBtn'), attackBtn=el('attackBtn');
+    const monsterArt=el('monsterArt'), floatDmg=el('floatDmg');
+
+    const clamp=(v,min,max)=>Math.max(min, Math.min(max,v));
+    const randWord=()=>words[Math.floor(Math.random()*words.length)];
+
+    function levenshtein(a,b){
+      const m=a.length, n=b.length;
+      const dp=Array.from({length:m+1},()=>Array(n+1).fill(0));
+      for(let i=0;i<=m;i++) dp[i][0]=i;
+      for(let j=0;j<=n;j++) dp[0][j]=j;
+      for(let i=1;i<=m;i++){
+        for(let j=1;j<=n;j++){
+          const cost= a[i-1]===b[j-1] ? 0 : 1;
+          dp[i][j]=Math.min(dp[i-1][j]+1, dp[i][j-1]+1, dp[i-1][j-1]+cost);
+        }
+      }
+      return dp[m][n];
+    }
+
+    function calcStats(input, target, elapsedSec){
+      const dist = levenshtein(input, target);
+      const maxLen = Math.max(input.length, target.length) || 1;
+      const accuracy = clamp(1 - dist / maxLen, 0, 1);
+      const cps = input.length / Math.max(elapsedSec, 0.001);
+      const speedMul = clamp(cps / 5, 0.5, 2.0);
+      const base = 50;
+      const comboBonus = 1 + clamp(Math.floor(combo) * 0.10, 0, 0.5);
+      const damage = Math.round(base * accuracy * speedMul * comboBonus);
+      return {accuracy, cps, damage};
+    }
+
+    function setHP(hp){
+      monsterHP = clamp(hp,0,monsterMaxHP);
+      const pct = (monsterHP/monsterMaxHP)*100;
+      hpEl.style.width = pct + '%';
+      hpNumEl.textContent = `HP ${monsterHP} / ${monsterMaxHP}`;
+    }
+
+    function setPrompt(text){
+      promptEl.innerHTML = `お題：<strong>${text}</strong>`;
+    }
+
+    function startTimer(){
+      startTime = performance.now();
+      stopTimer();
+      timerId = setInterval(()=>{
+        const t = (performance.now()-startTime)/1000;
+        timeEl.textContent = t.toFixed(2);
+        livePreview();
+      }, 50);
+    }
+
+    function stopTimer(){ if(timerId){ clearInterval(timerId); timerId=null; } }
+
+    function log(msg){
+      const p=document.createElement('p'); p.innerHTML=msg; logEl.prepend(p);
+    }
+
+    function livePreview(){
+      if(!target) return;
+      const t = (performance.now()-startTime)/1000;
+      const {accuracy, cps} = calcStats(inp.value, target, t);
+      accEl.textContent = Math.round(accuracy*100);
+      cpsEl.textContent = cps.toFixed(1);
+    }
+
+    function nextWord(){
+      target = randWord();
+      setPrompt(target);
+      inp.value = "";
+      inp.disabled = false; attackBtn.disabled = false; nextBtn.disabled = true;
+      inp.focus();
+      startTimer();
+    }
+
+    function startBattle(){
+      setHP(monsterMaxHP);
+      combo=0; el('combo').textContent = combo;
+      logEl.innerHTML='';
+      nextWord();
+    }
+
+    function showFloatDmg(val){
+      floatDmg.textContent = `-${val}`;
+      floatDmg.style.display='block';
+      floatDmg.style.top='-10px';
+      floatDmg.style.opacity='1';
+      floatDmg.offsetHeight;
+      floatDmg.style.animation='float 1.2s ease forwards';
+      setTimeout(()=>{ floatDmg.style.display='none'; }, 1200);
+    }
+
+    function attack(autoNext = false){
+      if(!target) return;
+      stopTimer();
+      const elapsed = (performance.now()-startTime)/1000;
+      const input = inp.value;
+      const {accuracy, cps, damage} = calcStats(input, target, elapsed);
+
+      accEl.textContent = Math.round(accuracy*100);
+      cpsEl.textContent = cps.toFixed(1);
+
+      if(Math.round(accuracy*100) === 100) { combo++; } else { combo = 0; }
+      el('combo').textContent = combo;
+
+      setHP(monsterHP - damage);
+      monsterArt.classList.remove('hit');
+      void monsterArt.offsetWidth;
+      monsterArt.classList.add('hit');
+      showFloatDmg(damage);
+
+      log(`『<strong>${target}</strong>』 入力：<code>${input || '(空)'}</code> | 正確性 <strong>${Math.round(accuracy*100)}%</strong> / 速度 <strong>${cps.toFixed(1)}cps</strong> → <span class="success">${damage} ダメージ！</span>`);
+
+      inp.disabled = true; attackBtn.disabled = true; nextBtn.disabled = false;
+      timeEl.textContent = elapsed.toFixed(2);
+
+      if(monsterHP<=0){
+        setPrompt('🎉 たおした！ おめでとう');
+        nextBtn.disabled = true; inp.disabled=true; attackBtn.disabled=true;
+      } else if(autoNext) {
+        setTimeout(() => nextWord(), 600);
+      }
+    }
+
+    startBtn.addEventListener('click', ()=>{ startBattle(); });
+    nextBtn.addEventListener('click', ()=>{ nextWord(); });
+    resetBtn.addEventListener('click', ()=>{
+      setHP(monsterMaxHP); combo=0; el('combo').textContent = combo; logEl.innerHTML='';
+      promptEl.innerHTML='お題：<span class="ghost">（開始してね）</span>';
+      timeEl.textContent='0.00'; accEl.textContent='0'; cpsEl.textContent='0.0';
+      inp.value=''; inp.disabled=true; attackBtn.disabled=true; nextBtn.disabled=true; target=""; stopTimer();
+    });
+    attackBtn.addEventListener('click', ()=>attack(true));
+
+    inp.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter'){ attack(true); }
+      if(e.key==='Escape'){ inp.value=''; livePreview(); }
+    });
+
+    setHP(monsterHP);
+  </script>
+</body>
+</html>
