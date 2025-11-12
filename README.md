@@ -1,0 +1,2 @@
+# rnakajimSoraTest
+typing etc.
